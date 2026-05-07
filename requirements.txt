@@ -1,0 +1,6 @@
+opencv-python
+numpy
+scipy
+python-dotenv
+ipython
+inference-sdk[webrtc]
