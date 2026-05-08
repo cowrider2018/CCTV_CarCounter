@@ -1,4 +1,4 @@
-# CarCounter - 車輛計數系統
+# CCTV_CarCounter - 車輛計數系統
 
 使用 Roboflow 推論 API 和 CCTV 攝像機串流，自動偵測並計數經過指定線路的所有車輛類別。
 
@@ -20,7 +20,7 @@
 ### 1. 複製或下載專案
 ```bash
 # 如果有 git
-git clone <repository-url>
+git clone https://github.com/cowrider2018/CCTV_CarCounter.git
 cd carCounter
 
 # 或直接下載解壓
@@ -38,13 +38,7 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. 安裝依賴
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-## 設定 .env 檔案
+### 3. 設定 .env 檔案
 
 在專案根目錄建立 `.env` 檔案，填入以下內容：
 
@@ -58,7 +52,6 @@ ROBOFLOW_API_KEY=your_api_key_here
 ROBOFLOW_WORKSPACE=your_workspace_name
 
 # CCTV 串流 URL（必填）
-# 支援 RTSP、HTTP 串流等
 # 例如：https://cctvtraffic.tycg.gov.tw/camera183/
 CCTV_URL=https://your-cctv-stream-url/
 ```
@@ -75,11 +68,11 @@ CCTV_URL=https://your-cctv-stream-url/
 carCounter/
 ├── main.ipynb              # 主程式（Jupyter Notebook）
 ├── requirements.txt        # Python 依賴清單
-├── .env                    # 環境變數配置（勿提交至版本控制）
-├── .gitignore             # 忽略規則
+├── .env                    # 環境變數配置（勿上傳）
+├── .gitignore             # Git 忽略規則文件
 ├── origin.mp4             # 錄製的原始影片（自動生成）
 ├── labeled.mp4            # 標註後的計數結果影片（自動生成）
-└── README.md              # 本檔案
+└── README.md              # 說明書
 ```
 
 ## 使用流程
@@ -103,62 +96,33 @@ carCounter/
    %pip install --upgrade pip
    %pip install -r requirements.txt
    ```
-   - 按 `Shift + Enter` 或點擊 ▶ 執行
+   - 點擊 ▶ 執行
 
    **Cell 2 - 錄製影片素材**
    ```python
-   # 錄製 20 秒的 CCTV 串流
-   # 輸出：origin.mp4
+   # 錄製影片素材
    ```
-   - 執行此儲存格以從 CCTV 錄製 20 秒影片
-   - 進度條會顯示錄製百分比
+   - 執行此儲存格以從 CCTV 錄製影片
    - 完成後儲存為 `origin.mp4`
 
    **Cell 3 - 上傳、偵測、計數**
    ```python
-   # 主要邏輯：
-   # 1. 上傳 origin.mp4 到 Roboflow
-   # 2. 逐幀推論並計數
-   # 3. 即時列印偵測結果
-   # 4. 輸出：labeled.mp4（含計數視覺化）
+   # 上傳影片並取得標註、計數
    ```
-   - 執行此儲存格進行完整的偵測和計數流程
-   - 控制台會列印每個新偵測的車輛
-   - 最終輸出 `labeled.mp4`
-
-### 方式二：命令列執行（進階）
-
-如果要以指令列執行（不開 Jupyter GUI），使用：
-```bash
-jupyter nbconvert --to notebook --execute --inplace main.ipynb
-```
-
-## 輸出說明
-
-### 控制台輸出
-```
-🚀 開始錄製純影片...
-📂 儲存路徑: origin.mp4
-⏱️  預計時長: 20 秒
-...
-【偵測成功】ID: 123 | 類型: car | 總量: 5
-【偵測成功】ID: 124 | 類型: motorcycle | 總量: 6
-...
-=== 最終計數 === Total=42, car=35, motorcycle=7
-Done! 400 frames at 20.0 FPS -> labeled.mp4
-```
+   - 執行此儲存格以上傳影片到 Roboflow 推論
+   - 完成後儲存為 `labeled.mp4`
 
 ### 輸出檔案
 
 | 檔案 | 說明 |
 |------|------|
-| `origin.mp4` | 從 CCTV 錄製的原始 20 秒影片 |
+| `origin.mp4` | 從 CCTV 錄製的原始影片 |
 | `labeled.mp4` | 標註版本（含所有車輛類別計數、計數線） |
 
-### 影片視覺化
+### 影片視覺化說明
 
 `labeled.mp4` 中的每一幀都會顯示：
-- **計數線**：y = 60 像素的青色水平線（車輛需要越過此線才會被計數）
+- **計數線**：y = 60 像素的青色水平線（以上的車輛太模糊，不計算）
 - **計數文字**（左上角，青色）：
   ```
   Total: 42
