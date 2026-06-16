@@ -44,17 +44,22 @@ source venv/bin/activate
 
 ```env
 # Roboflow API 金鑰（必填）
-# 從 https://app.roboflow.com/settings/api 取得
+# 從你的 https://app.roboflow.com/settings/api 取得
 ROBOFLOW_API_KEY=your_api_key_here
-
-# Roboflow Workspace 名稱（必填）
-# 通常是你在 Roboflow 的使用者名稱或組織名稱
-ROBOFLOW_WORKSPACE=your_workspace_name
 
 # CCTV 串流 URL（必填）
 # 例如：https://cctvtraffic.tycg.gov.tw/camera183/
 CCTV_URL=https://your-cctv-stream-url/
+
+# --- 以下為選填（進階自定義用）---
+# 預設不需設定：程式碼已直接指向作者已發布的公開工作流 cowrider2018/carcounter。
+# 只有當你想改用「自己的」工作流時才需取消註解並填入，詳見下方「使用作者的工作流 / 如何自定義」。
+# ROBOFLOW_WORKSPACE=your_workspace_name
+# ROBOFLOW_WORKFLOW=your_workflow_id
 ```
+
+> 一般使用者只要填好「自己的」`ROBOFLOW_API_KEY` 與 `CCTV_URL` 即可，
+> 程式會以你的金鑰呼叫作者已發布的 `cowrider2018/carcounter` 工作流（私有模型在 Roboflow 伺服器端執行）。
 
 ### 獲取 Roboflow API 金鑰
 1. 前往 [Roboflow 官網](https://roboflow.com/) 並登入帳戶
@@ -158,6 +163,36 @@ carCounter/
 - **已知限制**：若車輛閃爍導致追蹤器重新指派新的 `tracker_id`（軌跡斷裂），
   以軌跡連線為基礎的方法無法將斷成兩段的軌跡接回，這類情況可能漏算。
 
+
+## 使用作者的工作流 / 如何自定義
+
+### 預設行為
+
+程式碼已預設**直接指向作者已發布的公開工作流 `cowrider2018/carcounter`**。
+你只需在 `.env` 填入「自己的」`ROBOFLOW_API_KEY`，程式就會以你的金鑰呼叫該工作流——
+偵測、追蹤與分類所用的私有模型都在 Roboflow 伺服器端執行，你無須自行訓練或上傳模型。
+
+工作流名稱與 workspace 定義於 `main.ipynb` 的 Cell 3：
+
+```python
+ROBOFLOW_WORKSPACE = os.environ.get("ROBOFLOW_WORKSPACE", "cowrider2018")
+ROBOFLOW_WORKFLOW  = os.environ.get("ROBOFLOW_WORKFLOW", "carcounter")
+```
+
+### `workflow.JSON` 的用途
+
+`workflow.JSON` 是上述 `carcounter` 工作流的**完整定義**，供想複製或自建工作流的人參考。
+
+### 如何自定義（改用自己的工作流）
+
+1. 在 Roboflow 進入自己的 workspace，建立或進入已存在的 workflow，點擊左上角 </> 符號開啟 JSON 編輯，複製 `workflow.JSON` 內容並填入或覆蓋
+   （如果你想用自己的模型，也可以自行修改參數）。
+2. 在 `.env` 取消註解並填入：
+   ```env
+   ROBOFLOW_WORKSPACE=你的_workspace_名稱
+   ROBOFLOW_WORKFLOW=你的_workflow_id
+   ```
+3. 重新執行 `main.ipynb` 的 Cell 3，即會改用你自己的工作流（`.env` 的值會覆寫上述預設）。
 
 ## 參考資源
 
