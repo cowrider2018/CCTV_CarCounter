@@ -1,0 +1,159 @@
+{
+  "version": "1.0",
+  "inputs": [
+    {
+      "type": "InferenceImage",
+      "name": "image"
+    },
+    {
+      "type": "WorkflowParameter",
+      "name": "confidence",
+      "default_value": 0.97
+    }
+  ],
+  "steps": [
+    {
+      "type": "roboflow_core/roboflow_object_detection_model@v2",
+      "name": "rapid_model",
+      "images": "$inputs.image",
+      "confidence": "$inputs.confidence",
+      "workspaceId": "sIubfH3fOdUOyymZDRRPgUJovLX2",
+      "datasetUrl": "carcounter-yswik",
+      "model_id": "carcounter-yswik/5"
+    },
+    {
+      "type": "roboflow_core/roboflow_dataset_upload@v2",
+      "name": "roboflow_dataset_upload",
+      "images": "$inputs.image",
+      "usage_quota_name": "rapid-upload-for-review",
+      "predictions": "$steps.rapid_model.predictions",
+      "minutely_usage_limit": 20,
+      "labeling_batch_prefix": "rapid-review",
+      "registration_tags": [
+        "rapid-review"
+      ],
+      "target_project": "carcounter-yswik"
+    },
+    {
+      "type": "roboflow_core/bounding_box_visualization@v1",
+      "name": "bounding_box_visualization",
+      "image": "$inputs.image",
+      "predictions": "$steps.rapid_model.predictions",
+      "thickness": 1
+    },
+    {
+      "type": "roboflow_core/trackers_bytetrack@v1",
+      "name": "byte_track_tracker",
+      "image": "$inputs.image",
+      "detections": "$steps.rapid_model.predictions"
+    },
+    {
+      "type": "roboflow_core/roboflow_object_detection_model@v3",
+      "name": "model",
+      "images": "$inputs.image",
+      "model_id": "carcounter-yswik/1"
+    }
+  ],
+  "outputs": [
+    {
+      "type": "JsonField",
+      "name": "predictions",
+      "coordinates_system": "own",
+      "selector": "$steps.byte_track_tracker.tracked_detections"
+    },
+    {
+      "type": "JsonField",
+      "name": "annotated_image",
+      "coordinates_system": "own",
+      "selector": "$steps.bounding_box_visualization.image"
+    },
+    {
+      "type": "JsonField",
+      "name": "vehicle_type",
+      "coordinates_system": "own",
+      "selector": "$steps.model.predictions"
+    }
+  ],
+  "metadata": {
+    "ui": {
+      "nodes": {
+        "$inputs": {
+          "x": 835,
+          "y": 0
+        },
+        "$steps.rapid_model": {
+          "x": 330,
+          "y": 274
+        },
+        "$steps.roboflow_dataset_upload": {
+          "x": 0,
+          "y": 425
+        },
+        "$outputs": {
+          "x": 835,
+          "y": 566
+        },
+        "$steps.bounding_box_visualization": {
+          "x": 330,
+          "y": 425
+        },
+        "$steps.byte_track_tracker": {
+          "x": 660,
+          "y": 425
+        },
+        "$steps.model": {
+          "x": 835,
+          "y": 274
+        }
+      },
+      "edges": [
+        {
+          "source": "$inputs",
+          "target": "$steps.rapid_model",
+          "inputProperty": "images",
+          "sourceSelector": "image"
+        },
+        {
+          "source": "$steps.rapid_model",
+          "target": "$steps.roboflow_dataset_upload",
+          "inputProperty": "predictions",
+          "sourceSelector": "predictions"
+        },
+        {
+          "source": "$steps.rapid_model",
+          "target": "$steps.bounding_box_visualization",
+          "inputProperty": "predictions",
+          "sourceSelector": "predictions"
+        },
+        {
+          "source": "$steps.bounding_box_visualization",
+          "target": "$outputs",
+          "sourceSelector": "image"
+        },
+        {
+          "source": "$steps.rapid_model",
+          "target": "$steps.byte_track_tracker",
+          "inputProperty": "detections",
+          "sourceSelector": "predictions"
+        },
+        {
+          "source": "$steps.byte_track_tracker",
+          "target": "$outputs",
+          "sourceSelector": "tracked_detections"
+        },
+        {
+          "source": "$inputs",
+          "target": "$steps.model",
+          "inputProperty": "images",
+          "sourceSelector": "image"
+        },
+        {
+          "source": "$steps.model",
+          "target": "$outputs",
+          "sourceSelector": "predictions"
+        }
+      ],
+      "groups": []
+    }
+  }
+}
