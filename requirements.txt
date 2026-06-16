@@ -3,4 +3,4 @@ numpy
 scipy
 python-dotenv
 ipython
-inference-sdk[webrtc]
+ultralytics
