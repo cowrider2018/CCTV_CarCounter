@@ -71,6 +71,7 @@ carCounter/
 ├── .env                    # 環境變數配置（勿上傳）
 ├── .gitignore             # Git 忽略規則文件
 ├── origin.mp4             # 錄製的原始影片（自動生成）
+├── roboflow_data.db       # Roboflow 標註與時間戳記資料庫（SQLite，自動生成）
 ├── labeled.mp4            # 標註後的計數結果影片（自動生成）
 └── README.md              # 說明書
 ```
@@ -90,13 +91,13 @@ carCounter/
    - 在 Jupyter 中導航到該檔案並開啟
 
 3. **逐個執行儲存格（Cell）**
+   - 依序點擊 ▶ 執行
 
    **Cell 1 - 安裝套件**（可選，僅首次運行）
    ```python
    %pip install --upgrade pip
    %pip install -r requirements.txt
    ```
-   - 點擊 ▶ 執行
 
    **Cell 2 - 錄製影片素材**
    ```python
@@ -105,18 +106,28 @@ carCounter/
    - 執行此儲存格以從 CCTV 錄製影片
    - 完成後儲存為 `origin.mp4`
 
-   **Cell 3 - 上傳、偵測、計數**
+   **Cell 3 - 切分影片、上傳 Roboflow、存入 SQLite**
    ```python
-   # 上傳影片並取得標註、計數
+   # 切分影片並上傳 Roboflow，將標註、時間存入 SQLite
    ```
-   - 執行此儲存格以上傳影片到 Roboflow 推論
-   - 完成後儲存為 `labeled.mp4`
+   - 將 `origin.mp4` 以每 10 分鐘為一段切片，避免單次上傳過大導致 `RuntimeError`
+   - 逐段上傳到 Roboflow 推論 API，取得每一影格的標註
+   - 將標註與時間戳記原樣存入 `roboflow_data.db`（SQLite）
+
+   **Cell 4 - 讀取 SQLite、繪製、輸出影片**
+   ```python
+   # 從 SQLite 解析標註、計數並重畫到原影片，輸出 labeled.mp4
+   ```
+   - 從 `roboflow_data.db` 讀取所有影格的標註
+   - 解析標註並對通過計數線的車輛進行計數
+   - 將標註與計數重畫回原影片，完成後儲存為 `labeled.mp4`
 
 ### 輸出檔案
 
 | 檔案 | 說明 |
 |------|------|
 | `origin.mp4` | 從 CCTV 錄製的原始影片 |
+| `roboflow_data.db` | Roboflow 回傳的標註與時間戳記（SQLite，由 Cell 3 產生、Cell 4 讀取） |
 | `labeled.mp4` | 標註版本（含所有車輛類別計數、計數線） |
 
 ### 影片視覺化說明
