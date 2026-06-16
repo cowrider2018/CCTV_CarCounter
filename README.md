@@ -1,19 +1,19 @@
 # CCTV_CarCounter - 車輛計數系統
 
-使用 Roboflow 推論 API 和 CCTV 攝像機串流，自動偵測並計數跨越指定計數線段的所有車輛類別。
+使用 YOLO 模型偵測、ByteTrack 追蹤與 CCTV 攝像機串流，自動偵測並計數跨越指定計數線段的所有車輛類別。所有推論與追蹤皆在本地完成。
 
 ## 環境需求
 
 ### Python 版本
-- **建議：Python 3.10**
+- **建議：Python 3.10+**
 - 支援：Python 3.8+
-- 不支援：Python 3.12+（inference-sdk 相容性問題）
 
 ### 系統依賴
 - ffmpeg（用於 CCTV 串流錄製和視頻編碼）
   - **Windows**: 可從 [ffmpeg.org](https://ffmpeg.org/download.html) 下載，或使用 `choco install ffmpeg`
   - **macOS**: `brew install ffmpeg`
   - **Linux**: `sudo apt-get install ffmpeg`
+- （選用）NVIDIA GPU + CUDA：有 GPU 時 Ultralytics 會自動使用以加速推論；無 GPU 時自動退回 CPU（較慢但可正常運行）。
 
 ## 安裝步驟
 
@@ -43,40 +43,33 @@ source venv/bin/activate
 在專案根目錄建立 `.env` 檔案，填入以下內容：
 
 ```env
-# Roboflow API 金鑰（必填）
-# 從你的 https://app.roboflow.com/settings/api 取得
-ROBOFLOW_API_KEY=your_api_key_here
-
 # CCTV 串流 URL（必填）
-# 例如：https://cctvtraffic.tycg.gov.tw/camera183/
+# 例如：https://cctvtraffic.tycg.gov.tw/camera011/
 CCTV_URL=https://your-cctv-stream-url/
 
-# --- 以下為選填（進階自定義用）---
-# 預設不需設定：程式碼已直接指向作者已發布的公開工作流 cowrider2018/carcounter。
-# 只有當你想改用「自己的」工作流時才需取消註解並填入，詳見下方「使用作者的工作流 / 如何自定義」。
-# ROBOFLOW_WORKSPACE=your_workspace_name
-# ROBOFLOW_WORKFLOW=your_workflow_id
+# 本地模型路徑（選填，預設 model.pt）
+MODEL_PATH=model.pt
+
+# 偵測信心門檻（選填，預設 0.25 = Ultralytics 預設）
+CONFIDENCE=0.25
 ```
 
-> 一般使用者只要填好「自己的」`ROBOFLOW_API_KEY` 與 `CCTV_URL` 即可，
-> 程式會以你的金鑰呼叫作者已發布的 `cowrider2018/carcounter` 工作流（私有模型在 Roboflow 伺服器端執行）。
+### 4. 放置本地模型
 
-### 獲取 Roboflow API 金鑰
-1. 前往 [Roboflow 官網](https://roboflow.com/) 並登入帳戶
-2. 進入 [API 設定頁面](https://app.roboflow.com/settings/api)
-3. 複製 **Private API Key**
-4. 貼到 `.env` 的 `ROBOFLOW_API_KEY`
+將你的 YOLO 偵測模型（Ultralytics `.pt` 格式）放在專案根目錄並命名為 `model.pt`，
+或以 `.env` 的 `MODEL_PATH` 指向其他位置。詳見下方「本地模型設定」。
 
 ## 專案結構
 
 ```
 carCounter/
 ├── main.ipynb              # 主程式（Jupyter Notebook）
+├── model.pt                # 本地 YOLO 偵測模型（自行放入）
 ├── requirements.txt        # Python 依賴清單
 ├── .env                    # 環境變數配置（勿上傳）
 ├── .gitignore             # Git 忽略規則文件
 ├── origin.mp4             # 錄製的原始影片（自動生成）
-├── roboflow_data.db       # Roboflow 標註與時間戳記資料庫（SQLite，自動生成）
+├── detections.db          # 本地推論的標註與時間戳記資料庫（SQLite，自動生成）
 ├── labeled.mp4            # 標註後的計數結果影片（自動生成）
 └── README.md              # 說明書
 ```
@@ -111,19 +104,20 @@ carCounter/
    - 執行此儲存格以從 CCTV 錄製影片
    - 完成後儲存為 `origin.mp4`
 
-   **Cell 3 - 切分影片、上傳 Roboflow、存入 SQLite**
+   **Cell 3 - 本地推論、追蹤、存入 SQLite**
    ```python
-   # 切分影片並上傳 Roboflow，將標註、時間存入 SQLite
+   # 逐幀本地推論（YOLO 偵測 + ByteTrack 追蹤），將標註、時間存入 SQLite
    ```
-   - 將 `origin.mp4` 以每 10 分鐘為一段切片，避免單次上傳過大導致 `RuntimeError`
-   - 逐段上傳到 Roboflow 推論 API，取得每一影格的標註
-   - 將標註與時間戳記原樣存入 `roboflow_data.db`（SQLite）
+   - 載入 `MODEL_PATH` 指定的本地 YOLO 模型
+   - 對 `origin.mp4` 逐幀執行 `model.track()`（內建 ByteTrack 追蹤），取得每一影格含 `tracker_id` 的標註
+   - 將標註與時間戳記存入 `detections.db`（SQLite）
+   - 偵測與追蹤皆在本地完成
 
    **Cell 4 - 讀取 SQLite、繪製、輸出影片**
    ```python
    # 從 SQLite 解析標註、計數並重畫到原影片，輸出 labeled.mp4
    ```
-   - 從 `roboflow_data.db` 讀取所有影格的標註
+   - 從 `detections.db` 讀取所有影格的標註
    - 解析標註，並對**跨越計數線段**的車輛進行去重計數（詳見下方「計數規則」）
    - 將標註與計數重畫回原影片，完成後儲存為 `labeled.mp4`
 
@@ -132,13 +126,13 @@ carCounter/
 | 檔案 | 說明 |
 |------|------|
 | `origin.mp4` | 從 CCTV 錄製的原始影片 |
-| `roboflow_data.db` | Roboflow 回傳的標註與時間戳記（SQLite，由 Cell 3 產生、Cell 4 讀取） |
+| `detections.db` | 本地推論回傳的標註與時間戳記（SQLite，由 Cell 3 產生、Cell 4 讀取） |
 | `labeled.mp4` | 標註版本（含所有車輛類別計數、計數線） |
 
 ### 影片視覺化說明
 
 `labeled.mp4` 中的每一幀都會顯示：
-- **計數線段**：位於 `y = 100` 像素、`x = 0 ~ 160` 的青色水平線段（只畫出這一段，而非整條橫線）
+- **計數線段**：位於 `y = 120` 像素、`x = 0 ~ 160` 的青色水平線段（只畫出這一段，而非整條橫線）
 - **計數文字**（左上角，黃色）：
   ```
   Total: 42
@@ -153,54 +147,44 @@ carCounter/
 
 計數的依據是「車輛是否**跨越**計數線段」：
 
-- **計數線段**：`COUNT_LINE_Y = 100`、`COUNT_LINE_X_MIN = 0`、`COUNT_LINE_X_MAX = 160`，
-  即 `y = 100`、`x ∈ [0, 160]` 的水平線段（可於 Cell 4 開頭調整這三個常數）。
+- **計數線段**：`COUNT_LINE_Y = 120`、`COUNT_LINE_X_MIN = 0`、`COUNT_LINE_X_MAX = 160`，
+  即 `y = 120`、`x ∈ [0, 160]` 的水平線段（可於 Cell 4 開頭調整這三個常數）。
 - **跨線判定（雙向）**：依 `tracker_id` 追蹤每台車的中心點軌跡，當同一 id 前後兩次出現
   分屬計數線兩側（由上往下或由下往上皆計），即視為一次跨越。
-- **x 範圍判定**：取該車前後兩點「連線」與 `y = 100` 的交點 x，交點落在 `[0, 160]` 才計數。
+- **x 範圍判定**：取該車前後兩點「連線」與 `y = 120` 的交點 x，交點落在 `[0, 160]` 才計數。
   使用連線交點（而非單一影格的中心 x）可在偵測框閃爍、接近線時掉幀的情況下仍正確計數。
 - **去重**：每個 `tracker_id` 只計一次，計入其對應的車輛類別。
 - **已知限制**：若車輛閃爍導致追蹤器重新指派新的 `tracker_id`（軌跡斷裂），
   以軌跡連線為基礎的方法無法將斷成兩段的軌跡接回，這類情況可能漏算。
 
 
-## 使用作者的工作流 / 如何自定義
+## 本地模型設定
 
-### 預設行為
+### 模型需求
 
-程式碼已預設**直接指向作者已發布的公開工作流 `cowrider2018/carcounter`**。
-你只需在 `.env` 填入「自己的」`ROBOFLOW_API_KEY`，程式就會以你的金鑰呼叫該工作流——
-偵測、追蹤與分類所用的私有模型都在 Roboflow 伺服器端執行，你無須自行訓練或上傳模型。
+- 格式：**Ultralytics YOLO `.pt`**（程式以 `from ultralytics import YOLO` 載入）。
+- Cell 3 以 `model.track(..., tracker="bytetrack.yaml")` 進行偵測＋追蹤，`bytetrack.yaml`
+  為 Ultralytics 內建，無需額外檔案。
+- 模型的類別名稱（`model.names`）即為計數時的分組依據；若要區分 `car` / `motorcycle` /
+  `truck` 等，模型需以對應類別訓練。
 
-工作流名稱與 workspace 定義於 `main.ipynb` 的 Cell 3：
+### 指定模型與門檻
 
-```python
-ROBOFLOW_WORKSPACE = os.environ.get("ROBOFLOW_WORKSPACE", "cowrider2018")
-ROBOFLOW_WORKFLOW  = os.environ.get("ROBOFLOW_WORKFLOW", "carcounter")
+於 `.env` 設定（皆為選填，有預設值）：
+
+```env
+MODEL_PATH=model.pt   # 你的模型路徑
+CONFIDENCE=0.25       # 偵測信心門檻（Ultralytics 預設；過高會濾掉大多數偵測，可依模型表現調整）
 ```
-
-### `workflow.JSON` 的用途
-
-`workflow.JSON` 是上述 `carcounter` 工作流的**完整定義**，供想複製或自建工作流的人參考。
-
-### 如何自定義（改用自己的工作流）
-
-1. 在 Roboflow 進入自己的 workspace，建立或進入已存在的 workflow，點擊左上角 </> 符號開啟 JSON 編輯，複製 `workflow.JSON` 內容並填入或覆蓋
-   （如果你想用自己的模型，也可以自行修改參數）。
-2. 在 `.env` 取消註解並填入：
-   ```env
-   ROBOFLOW_WORKSPACE=你的_workspace_名稱
-   ROBOFLOW_WORKFLOW=你的_workflow_id
-   ```
-3. 重新執行 `main.ipynb` 的 Cell 3，即會改用你自己的工作流（`.env` 的值會覆寫上述預設）。
 
 ## 參考資源
 
-- **Roboflow 官網**：https://roboflow.com/
-- **Roboflow Python SDK**：https://docs.roboflow.com/deploy/python
+- **Ultralytics YOLO 文件**：https://docs.ultralytics.com/
+- **Ultralytics 追蹤（ByteTrack）**：https://docs.ultralytics.com/modes/track/
 - **OpenCV 文件**：https://docs.opencv.org/
 - **Jupyter Lab 使用教學**：https://jupyter.org/
 
 ## 授權
 
-本專案使用 Roboflow 推論 API。詳細條款請參閱 Roboflow 服務協議。
+本專案使用 Ultralytics YOLO 進行本地推論。請留意 Ultralytics 採 AGPL-3.0 授權，
+商用時請參閱其授權條款。
